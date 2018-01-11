@@ -1,6 +1,9 @@
 # tmp files
 *.swp
 
+# compiled files
+*.pyc
+
 # virtual_env
 .cortical_paper
 
