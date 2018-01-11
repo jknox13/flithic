@@ -1,3 +1,9 @@
+# tmp files
 *.swp
+
+# virtual_env
+.cortical_paper
+
+# data
 excel_files
 data
