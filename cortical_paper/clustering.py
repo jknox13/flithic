@@ -63,7 +63,7 @@ def _test_clusters(X, clusters):
     clf = SVC(C=1.0, kernel="rbf", gamma="auto")
 
     # 100 random 50/50 splits
-    cv = SuffleSplit(n_splits=100, train_size=0.5, test_size=0.5)
+    cv = ShuffleSplit(n_splits=100, train_size=0.5, test_size=0.5)
 
     # return score
     return cross_val_score(clf, X, clusters, scoring="accuracy", cv=cv)
@@ -143,10 +143,26 @@ class GLIFClustering(BaseEstimator):
 
         # recursively split
         a = np.where(clusters == 1)
-        a = np.where(clusters == 2)
+        b = np.where(clusters == 2)
 
-        return _fit(indices[a], X[a]) + _fit(indices[b], X[b])
+        return self._fit(indices[a], X[a]) + self._fit(indices[b], X[b])
 
+    def _assign_clusters(self, clusters):
+        """...
+        Parameters
+        ----------
+        Returns
+        -------
+        """
+        # get n_obs, initalize label array
+        n = sum( [len(x) for x in clusters] )
+        labels = np.empty(n)
+
+        for i, cluster in enumerate(clusters):
+            # labels start at 1!!!! (like scipy.hierarchy)
+            labels[cluster] = i+1
+
+        return labels
 
     def fit(self, X, y=None):
         """Fit the hierarchical clustering on the data
@@ -177,6 +193,7 @@ class GLIFClustering(BaseEstimator):
         # recursively split in hierarchical fashion
         # ---------------------------------------------------------------------
         indices = np.arange(X_.shape[0])
-        self.labels_ = _fit(indices, X_)
+        clusters = self._fit(indices, X_)
 
+        self.labels_ = self._assign_clusters(clusters)
         return self

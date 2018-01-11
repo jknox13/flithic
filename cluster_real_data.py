@@ -1,10 +1,10 @@
 # Authors: Joseph Knox josephk@alleninstitute.org
 # License:
 from __future__ import print_function
-
+import numpy as np
 import pandas as pd
 
-from cortical_paper.clustering import GLIFCluster
+from cortical_paper.clustering import GLIFClustering
 
 def read_excel_file(path, sheetname):
     """Reads data file.
@@ -48,11 +48,12 @@ if __name__ == "__main__":
     granular = df.loc[~df.agranular]
 
     # use glif clustering procedure
-    clf = GLIFCluster(tol=tol)
+    clf = GLIFClustering(tol=tol)
 
     # cluster
     X = granular.loc[:,"L1":"L6a"]
     clf.fit(X)
 
     # print n_clusters
-    print( "Total # Clusters", len(clf.labels_.unique()) )
+    n_clusters = len( np.unique(clf.labels_) )
+    print( "Total # Clusters", n_clusters )
