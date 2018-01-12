@@ -14,13 +14,13 @@ def _in_order(root, result=[]):
     """..."""
     if root:
         if root.left:
-            for node in pre_order(root.left):
+            for node in _in_order(root.left):
                 yield node
 
         yield root.data
 
         if root.right:
-            for node in pre_order(root.right):
+            for node in _in_order(root.right):
                 yield node
 
 def _pre_order(root):
@@ -29,22 +29,22 @@ def _pre_order(root):
         yield root.data
 
         if root.left:
-            for node in pre_order(root.left):
+            for node in _pre_order(root.left):
                 yield node
 
         if root.right:
-            for node in pre_order(root.right):
+            for node in _pre_order(root.right):
                 yield node
 
 def _post_order(root):
     """..."""
     if root:
         if root.left:
-            for node in pre_order(root.left):
+            for node in _post_order(root.left):
                 yield node
 
         if root.right:
-            for node in pre_order(root.right):
+            for node in _post_order(root.right):
                 yield node
 
         yield root.data
