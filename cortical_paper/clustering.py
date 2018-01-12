@@ -205,15 +205,15 @@ class GLIFClustering(BaseEstimator):
 
     def _get_labels(self):
         """..."""
-        check_is_fitted(self, "_cluster_tree")
+        check_is_fitted(self, ["_cluster_tree", "n_obs_"])
         
         i = 1
-        labels = []
+        labels = np.empty(self.n_obs_)
         for cluster in iter_tree(self._cluster_tree, order="pre"):
             if isinstance(cluster, self.Leaf):
-                labels.append( np.repeat(i, cluster.indices.size) )
+                labels[cluster.indices] = i
                 i += 1
-        return np.concatenate(labels)
+        return labels
 
     @property
     def labels_(self):
