@@ -227,11 +227,6 @@ class GLIFClustering(BaseEstimator):
         # recursively split in hierarchical fashion
         # ---------------------------------------------------------------------
         self._cluster_tree = self._fit(X_)
-
-        #self.clusters_ = unravel_iterable(clusters)
-        for x in iter_bft(self._cluster_tree, reverse=True):
-            print(x)
-
         return self
 
     def _get_labels(self):
@@ -252,47 +247,103 @@ class GLIFClustering(BaseEstimator):
             self._labels = self._get_labels()
             return self._labels
 
+
     def _get_linkage(self):
-        """Produces linkage like scipy.hierarchy.linkage"""
-        FILL = 0#1e-4
+        """...:"""
+        FILL = 0 # in case scipy can't do 0
 
-        check_is_fitted(self, "clusters_")
+        check_is_fitted(self, "_cluster_tree")
 
-        # mimic early agglomerative clustering
-        # fills (n_obs - n_splits) rows
+
+        # returned linkage (n_obs-1)x4
         Z = []
-        cluster_ids = []
-        cluster_id = self.n_obs_
-        for i, cluster in enumerate(self.clusters_):
 
-            # fencepost, link two observations
-            a, b = cluster.indices[:2]
-            tmp = [[a, b, FILL, 2]]
-            for j, index in enumerate(cluster.indices[2:]):
-                # assign everyother observation to fencepost cluster
-                row = [index, cluster_id, FILL, 3+j]
+        # iterates through Z, used for referencing previously formed clusters
+        z_row = self.n_obs_ - 1
+        name_row_map = {}
+        
+        for cluster in iter_bft(self._cluster_tree, reverse=True):
+            if isinstance(cluster, self.Leaf):
+                # mimic early agglomerative clustering
+                # fills (n_obs - n_splits) rows
 
-                tmp.append(row)
-                cluster_id += 1
+                # fencepost
+                a, b = cluster.indices[:2]
+                tmp = [[a, b, FILL, 2]]
+                z_row += 1
 
-                
-            # append to master list
-            Z.extend(tmp)
-            cluster_ids.append(cluster_id)
+                for j, index in enumerate(cluster.indices[2:]):
+                    # assign everyother observation to fencepost cluster
+                    row = [index, z_row, FILL, 3+j]
 
-        # link actual clustering 
-        # post order traversal of binary tree of splits
-        # for row in self._score_tree:
+                    tmp.append(row)
+                    z_row += 1
+
+                # update
+                Z.extend(tmp)
+                name_row_map[cluster.name] = z_row
+
+
+            elif isinstance(cluster, self.Split):
+                # link the cluster merge
+                a, b = map(name_row_map.get, cluster.children)
+
+                # indices when children were formed
+                row = [a, b, cluster.score, cluster.size]
+
+                # update
+                Z.append(row)
+                z_row += 1
+                name_row_map[cluster.name] = z_row
+
+            else:
+                # dummy test
+                raise ValueError("something wrong with _cluster_tree!")
 
         return np.asarray(Z)
 
-#    @property
-#    def linkage_(self):
-#        try:
-#            return self._linkage
-#        except AttributeError:
-#            self._linkage = self._get_linkage()
-#            return self._linkage
+    @property
+    def linkage_(self):
+        try:
+            return self._linkage
+        except AttributeError:
+            self._linkage = self._get_linkage()
+            return self._linkage
+ 
+#     def _get_linkage(self):
+#         """Produces linkage like scipy.hierarchy.linkage"""
+#         FILL = 0#1e-4
+# 
+#         check_is_fitted(self, "clusters_")
+# 
+#         # mimic early agglomerative clustering
+#         # fills (n_obs - n_splits) rows
+#         Z = []
+#         cluster_ids = []
+#         cluster_id = self.n_obs_
+#         for i, cluster in enumerate(self.clusters_):
+# 
+#             # fencepost, link two observations
+#             a, b = cluster.indices[:2]
+#             tmp = [[a, b, FILL, 2]]
+#             for j, index in enumerate(cluster.indices[2:]):
+#                 # assign everyother observation to fencepost cluster
+#                 row = [index, cluster_id, FILL, 3+j]
+# 
+#                 tmp.append(row)
+#                 cluster_id += 1
+# 
+#                 
+#             # append to master list
+#             Z.extend(tmp)
+#             cluster_ids.append(cluster_id)
+# 
+#         # link actual clustering 
+#         # post order traversal of binary tree of splits
+#         # for row in self._score_tree:
+# 
+#         return np.asarray(Z)
+
 #
 #    @property
 #    def cluster_scores_(self):
