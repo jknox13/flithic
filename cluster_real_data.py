@@ -37,23 +37,26 @@ def read_excel_file(path, sheetname):
 
 if __name__ == "__main__":
     # settings
+    np.random.seed(2)
     path = "./excel_files/all above -1.5 NPV by source-line-target.gct.xlsx"
     sheetname = "Sheet1"
-    tol = 0.90 # 90% tolerance in GLIF clustering procedure
+    tol = 0.10 # 90% tolerance in GLIF clustering procedure
 
     # read dataframe
-    df = read_excel_file(path, sheetname)
+    #df = read_excel_file(path, sheetname)
 
     # granular
-    granular = df.loc[~df.agranular]
+    #granular = df.loc[~df.agranular]
 
     # use glif clustering procedure
     clf = GLIFClustering(tol=tol)
 
     # cluster
-    X = granular.loc[:,"L1":"L6a"]
+    #X = granular.loc[:,"L1":"L6a"]
+    a = np.random.multivariate_normal([10, 0], [[3, 1], [1, 4]], size=[50,])
+    b = np.random.multivariate_normal([0, 20], [[3, 1], [1, 4]], size=[6,])
+    X = np.concatenate((a, b),) + 10
     clf.fit(X)
 
-    # print n_clusters
-    n_clusters = len( np.unique(clf.labels_) )
-    print( "Total # Clusters", n_clusters )
+
+    print( "\n", clf.labels_)
