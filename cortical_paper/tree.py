@@ -10,32 +10,54 @@ class Node(object):
         self.left = None
         self.right = None
 
-def in_order(self, node, result=[]):
+def _in_order(root, result=[]):
     """..."""
-    if node:
-        in_order(node.left, result=result)
-        result.append(node.data)
-        in_order(node.right, result=result)
-  
-    return result
+    if root:
+        if root.left:
+            for node in pre_order(root.left):
+                yield node
 
-def pre_order(node, result=[]):
-    """..."""
-    if node:
-        result.append(node.data)
-        pre_order(node.left, result=result)
-        pre_order(node.right, result=result)
-    
-    return result
+        yield root.data
 
-def post_order(node, result=[]):
+        if root.right:
+            for node in pre_order(root.right):
+                yield node
+
+def _pre_order(root):
     """..."""
-    if node:
-        post_order(node.left, base=base, result=result)
-        post_order(node.right, base=base, result=result)
-        result.append(node.data)
-    
-    return result
+    if root:
+        yield root.data
+
+        if root.left:
+            for node in pre_order(root.left):
+                yield node
+
+        if root.right:
+            for node in pre_order(root.right):
+                yield node
+
+def _post_order(root):
+    """..."""
+    if root:
+        if root.left:
+            for node in pre_order(root.left):
+                yield node
+
+        if root.right:
+            for node in pre_order(root.right):
+                yield node
+
+        yield root.data
+
+def iter_tree(root, order="in"):
+    if order == "in":
+        return _in_order(root)
+    elif order == "pre":
+        return _pre_order(root)
+    elif order == "post":
+        return _post_order(root)
+    else:
+        raise ValueError("order must be one of [in, pre, or post]")
 
 def bft(root):
     """Breadth first search"""
