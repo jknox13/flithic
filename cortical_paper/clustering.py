@@ -14,7 +14,7 @@ from sklearn.utils import check_array
 from sklearn.model_selection import cross_val_score, ShuffleSplit
 from sklearn.utils.validation import check_is_fitted
 
-from tree import Node, iter_bft, pre_order
+from tree import Node, iter_bft, iter_tree
 from utils import unravel_iterable
 
 def _parameter_skew_check(X, alpha=1e-8):
@@ -169,34 +169,15 @@ class GLIFClustering(BaseEstimator):
         node.left = self._fit_recursive(X[a], A, node.left)
         node.right = self._fit_recursive(X[b], B, node.right)
 
-        #return [ self._fit_recursive(X[a], A) ] + [ self._fit_recursive(X[b], B) ]
         return node
 
     def _fit(self, X):
         """wrapper, inits cluster"""
         # for linkage
-        cluster = self.Cluster( np.arange(X.shape[0]), score=0.0, 
-                                name="", size=X.shape[0])
+        cluster = self.Cluster( np.arange(self.n_obs_), score=0.0, 
+                                name="", size=self.n_obs_)
         return self._fit_recursive(X, cluster)
 
-
-#     def _assign_clusters(self, clusters):
-#         """...
-#         Parameters
-#         ----------
-#         Returns
-#         -------
-#         """
-#         # get n_obs, initalize label array
-#         n = sum( [len(x) for x in clusters] )
-#         labels = np.empty(n)
-# 
-#         for i, cluster in enumerate(clusters):
-#             # labels start at 1!!!! (like scipy.hierarchy)
-#             labels[cluster] = i+1
-# 
-#         return labels
-# 
     def fit(self, X, y=None):
         """Fit the hierarchical clustering on the data
 
@@ -213,19 +194,12 @@ class GLIFClustering(BaseEstimator):
         X_ = check_array(X, ensure_min_samples=2, estimator=self)
         self.n_obs_, self.n_params_ = X_.shape
         
-        # ---------------------------------------------------------------------
-        # for each parameter, if skew(param) > skew(log(param)), use log(param)
-        # ---------------------------------------------------------------------
         X_ = _parameter_skew_check(X_)
 
-        # ---------------------------------------------------------------------
         # z-score all params
-        # ---------------------------------------------------------------------
         X_ = zscore(X_)
 
-        # ---------------------------------------------------------------------
         # recursively split in hierarchical fashion
-        # ---------------------------------------------------------------------
         self._cluster_tree = self._fit(X_)
         return self
 
@@ -233,10 +207,12 @@ class GLIFClustering(BaseEstimator):
         """..."""
         check_is_fitted(self, "_cluster_tree")
         
-        order = pre_order(self._cluster_tree)
-        leaves = [x for x in order if isinstance(x, self.Leaf)]
-        labels = [ np.repeat(i+1, leaf.indices.size) 
-                   for i, leaf in enumerate(leaves) ]
+        i = 1
+        labels = []
+        for cluster in iter_tree(self._cluster_tree, order="pre"):
+            if isinstance(cluster, self.Leaf):
+                labels.append( np.repeat(i, cluster.indices.size) )
+                i += 1
         return np.concatenate(labels)
 
     @property
@@ -247,13 +223,12 @@ class GLIFClustering(BaseEstimator):
             self._labels = self._get_labels()
             return self._labels
 
-
     def _get_linkage(self):
         """...:"""
-        FILL = 0 # in case scipy can't do 0
-
+        # NOTE : may rewrite zrow to be row index, (would be zrow+56 or smth)
         check_is_fitted(self, "_cluster_tree")
 
+        FILL=0. #1e-20 # try 0
 
         # returned linkage (n_obs-1)x4
         Z = []
@@ -262,45 +237,47 @@ class GLIFClustering(BaseEstimator):
         z_row = self.n_obs_ - 1
         name_row_map = {}
         
+        # get leaves, splits in reverse depth-first traversal order
+        leaves, splits = [], []
         for cluster in iter_bft(self._cluster_tree, reverse=True):
             if isinstance(cluster, self.Leaf):
-                # mimic early agglomerative clustering
-                # fills (n_obs - n_splits) rows
-
-                # fencepost
-                a, b = cluster.indices[:2]
-                tmp = [[a, b, FILL, 2]]
-                z_row += 1
-
-                for j, index in enumerate(cluster.indices[2:]):
-                    # assign everyother observation to fencepost cluster
-                    row = [index, z_row, FILL, 3+j]
-
-                    tmp.append(row)
-                    z_row += 1
-
-                # update
-                Z.extend(tmp)
-                name_row_map[cluster.name] = z_row
-
-
-            elif isinstance(cluster, self.Split):
-                # link the cluster merge
-                a, b = map(name_row_map.get, cluster.children)
-
-                # indices when children were formed
-                row = [a, b, cluster.score, cluster.size]
-
-                # update
-                Z.append(row)
-                z_row += 1
-                name_row_map[cluster.name] = z_row
-
+                leaves.append(cluster)
             else:
-                # dummy test
-                raise ValueError("something wrong with _cluster_tree!")
+                splits.append(cluster)
 
-        return np.asarray(Z)
+        for leaf in leaves:
+            # fencepost
+            a, b = leaf.indices[:2]
+            tmp = [[a, b, FILL*z_row, 2]] #scipy needs monotonic distances
+            z_row += 1
+
+            for j, index in enumerate(leaf.indices[2:]):
+                # assign everyother observation to fencepost cluster
+                row = [index, z_row, FILL*z_row, 3+j]
+
+                tmp.append(row)
+                z_row += 1
+
+            # update
+            Z.extend(tmp)
+            name_row_map[leaf.name] = z_row
+
+        for split in splits:
+            a, b = map(name_row_map.get, split.children)
+
+            # indices when children were formed
+            row = [a, b, split.score, split.size]
+
+            # update
+            Z.append(row)
+            z_row += 1
+            name_row_map[split.name] = z_row
+
+        # must contain doubles for scipy
+        Z = np.asarray(Z, dtype=np.float64)
+
+        # distances must be monotonic for scipy
+        return Z
 
     @property
     def linkage_(self):
@@ -309,69 +286,3 @@ class GLIFClustering(BaseEstimator):
         except AttributeError:
             self._linkage = self._get_linkage()
             return self._linkage
- 
-#     def _get_linkage(self):
-#         """Produces linkage like scipy.hierarchy.linkage"""
-#         FILL = 0#1e-4
-# 
-#         check_is_fitted(self, "clusters_")
-# 
-#         # mimic early agglomerative clustering
-#         # fills (n_obs - n_splits) rows
-#         Z = []
-#         cluster_ids = []
-#         cluster_id = self.n_obs_
-#         for i, cluster in enumerate(self.clusters_):
-# 
-#             # fencepost, link two observations
-#             a, b = cluster.indices[:2]
-#             tmp = [[a, b, FILL, 2]]
-#             for j, index in enumerate(cluster.indices[2:]):
-#                 # assign everyother observation to fencepost cluster
-#                 row = [index, cluster_id, FILL, 3+j]
-# 
-#                 tmp.append(row)
-#                 cluster_id += 1
-# 
-#                 
-#             # append to master list
-#             Z.extend(tmp)
-#             cluster_ids.append(cluster_id)
-# 
-#         # link actual clustering 
-#         # post order traversal of binary tree of splits
-#         # for row in self._score_tree:
-# 
-#         return np.asarray(Z)
-
-#
-#    @property
-#    def cluster_scores_(self):
-#        check_is_fitted(self, "clusters_")
-#        return [ cluster.score for cluster in self.clusters_ ]
-#
-#    @property
-#    def cluster_orders_(self):
-#        return { i+1 : cluster.order for i, cluster in enumerate(self.clusters_) }
-#
-#    @property
-#    def cluster_sizes_(self):
-#        check_is_fitted(self, "clusters_")
-#        return [ cluster.size for cluster in self.clusters_ ]
-##     def _define_labels(clusters):
-#         """
-#         ...
-#         """
-#         in_order = _unravel_iterable(clusters)
-# 
-#         result = []
-#         for i, cluster in enumerate(in_order):
-#             arr = np.vstack( (cluster.indices, 
-#                               np.repeat(i+1, cluster.size),
-#                               np.repeat(cluster.score, cluster.size),
-#                               np.repeat(cluster.size, cluster.size)) )
-# 
-#             result.append(arr)
-# 
-#         return np.hstack(result).T
-
