@@ -1,5 +1,5 @@
 # Authors: Joseph Knox josephk@allenistitute.org
-# License: 
+# License:
 
 from collections import deque
 
@@ -74,7 +74,7 @@ def bft(root):
             queue.append(current.right)
 
     return out
-    
+
 def iter_bft(root, reverse=False):
     """contains queue/stack combo
     """
