@@ -78,7 +78,8 @@ if __name__ == "__main__":
     granular = df.loc[~df.agranular]
     agranular = df.loc[df.agranular]
     agranular = agranular.drop("L4", axis=1)
-    X = granular.loc[:,"L1":"L6a"]
+    X_gran = granular.loc[:,"L1":"L6a"]
+    X_agran = agranular.loc[:,"L1":"L6a"]
 
     # fake data
     #a = np.random.multivariate_normal([10, 0], [[3, 1], [1, 4]], size=[50,])
@@ -87,15 +88,29 @@ if __name__ == "__main__":
 
     # use glif clustering procedure
     # print("tol\tn_clusters")
-    tols = 0.01*np.arange(80,100)
-    for tol in tols:
-        clf = GLIFClustering(tol=tol)
-        clf.fit(X)
-        print("{}%\t".format(tol*100),len(np.unique(clf.labels_)))
+#    tols = 0.01*np.arange(80,100)
+#    for tol in tols:
+#        clf = GLIFClustering(tol=tol)
+#        clf.fit(X)
+#        print("{}%\t".format(tol*100),len(np.unique(clf.labels_)))
+
+    # add label col
+    df["label"] = 0
 
     # fit 
-    #clf = GLIFClustering(tol=tol)
-    #clf.fit(X)
+    clf = GLIFClustering(tol=tol)
+
+    # granular
+    clf.fit(X_gran)
+    n_gran = len(np.unique(clf.labels_))
+    df.loc[~df.agranular, "label"] = clf.labels_
+
+    # agranular
+    clf = GLIFClustering(tol=tol)
+    clf.fit(X_agran)
+    df.loc[df.agranular, "label"] = clf.labels_+n_gran
+
+    df.to_csv("./output/clustered_real_data.csv")
 
     # plot dendrogram
     #plot_dendrogram(X, clf.linkage_, labels=clf.labels_)

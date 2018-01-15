@@ -1,5 +1,9 @@
 # Authors: Joseph Knox josephk@alleninstitute.org
 # License:
+
+# TODO: option to run clustering past tolerance will make this more like 
+#       scipy.cluster.hierarchy.
+# TODO: incorporate heapq - priority trees
 import numpy as np
 
 from collections import namedtuple, deque
