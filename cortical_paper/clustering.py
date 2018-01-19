@@ -1,7 +1,8 @@
 # Authors: Joseph Knox josephk@alleninstitute.org
 # License:
 
-# TODO: option to run clustering past tolerance will make this more like 
+# TODO: FIX lowest level of dendrogram (linkage property)
+# TODO: option to run clustering past tolerance will make this more like
 #       scipy.cluster.hierarchy.
 # TODO: incorporate heapq - priority trees
 import numpy as np
@@ -270,14 +271,14 @@ class GLIFClustering(BaseEstimator):
             Z.extend(tmp)
             name_row_map[leaf.name] = z_row
 
-        # DISTNACES ARE CUMMULATIVE!!!
+        # DISTANCES ARE CUMMULATIVE!!!
         name_distance_map = dict()
         for split in splits:
 
             # get distance
             try:
                 distance = name_distance_map[split.name]
-            except IndexError:
+            except KeyError:
                 # no children splits
                 distance = split.score
 
@@ -285,7 +286,7 @@ class GLIFClustering(BaseEstimator):
             parent = split.name[:-1]
             try:
                 name_distance_map[parent] += distance
-            except IndexError:
+            except KeyError:
                 name_distance_map[parent] = distance
 
             # indices when children were formed
