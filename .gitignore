@@ -5,7 +5,7 @@
 *.pyc
 
 # virtual_env
-.cortical_paper
+.env*
 
 # data
 excel_files
