@@ -1,6 +1,7 @@
 # Authors: Joseph Knox josephk@alleninstitute.org
 # License:
 from __future__ import print_function
+import os
 import sys
 import numpy as np
 import pandas as pd
@@ -52,7 +53,7 @@ def plot_dendrogram(X, Z, **kwargs):
     plt.show()
 
 
-def plot_clustermap(X, clf, title="", **kwargs):
+def plot_clustermap(X, clf, title="", filename="tmp", **kwargs):
     """Plots clustermap
     ...
     """
@@ -68,7 +69,7 @@ def plot_clustermap(X, clf, title="", **kwargs):
                           xticklabels=[], yticklabels=[], **kwargs)
 
     plt.title(title)
-    plot.savefig("./output/real_data_%s_clustermap.png" % title)
+    plot.savefig(filename)
 
 
 if __name__ == "__main__":
@@ -76,6 +77,13 @@ if __name__ == "__main__":
     path = "./excel_files/all above -1.5 NPV by source-line-target.gct.xlsx"
     sheetname = "Sheet1"
     tol = 0.85 # 90% tolerance in GLIF clustering procedure
+    stratified = True # stratifiedshufflesplit or shufflesplit
+    suffix = "_stratified" if stratified else ""
+
+    # output
+    output_dir = "output"
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
 
     # deep tree, need larger limit
     sys.setrecursionlimit(10000)
@@ -91,7 +99,7 @@ if __name__ == "__main__":
             X = X.drop("L4", axis=1)
 
         # fit clustering
-        clf = GLIFClustering(tol=tol)
+        clf = GLIFClustering(tol=tol, stratified=stratified)
         clf.fit(X)
 
         # update df
@@ -99,7 +107,9 @@ if __name__ == "__main__":
         df.loc[(df.agranular==agranular), "label"] = clf.labels_ + offset
 
         # plot
-        plot_clustermap(X, clf, title=title)
+        filename = "real_data_%s_clustermap%s.png" % (title, suffix)
+        filename = os.path.join(output_dir, filename)
+        plot_clustermap(X, clf, title=title+suffix, filename=filename)
 
         # print summary
         print( "", title, "=============", sep="\n" )
@@ -107,4 +117,4 @@ if __name__ == "__main__":
         print( "N clusters :", len(np.unique(clf.labels_)) )
 
     # save updated df with labels
-    df.to_csv("./output/clustered_real_data.csv")
+    df.to_csv( os.path.join(output_dir, "clustered_real_data%s.csv" % suffix) )

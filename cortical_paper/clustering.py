@@ -16,11 +16,10 @@ from scipy.stats import skew, zscore
 from sklearn.svm import SVC
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_array
-from sklearn.model_selection import cross_val_score, ShuffleSplit
+from sklearn.model_selection import cross_val_score, ShuffleSplit, StratifiedShuffleSplit
 from sklearn.utils.validation import check_is_fitted
 
 from tree import Node, iter_bft, iter_tree
-from utils import unravel_iterable
 
 def _parameter_skew_check(X, alpha=1e-8):
     """Returns X or Log(X) based on skew.
@@ -61,7 +60,7 @@ def _ward_cluster(X):
     # return top branch split using ward linkage
     return fcluster( ward(D), 2, criterion="maxclust" )
 
-def _test_clusters(X, clusters):
+def _test_clusters(X, clusters, stratified=False):
     """Clusters 1-corr using Ward distance
 
     Parameters
@@ -74,7 +73,12 @@ def _test_clusters(X, clusters):
     clf = SVC(C=1.0, kernel="rbf", gamma="auto")
 
     # 100 random 50/50 splits
-    cv = ShuffleSplit(n_splits=100, train_size=0.5, test_size=0.5)
+    if stratified:
+        splitter = StratifiedShuffleSplit
+    else:
+        splitter = ShuffleSplit
+
+    cv = splitter(n_splits=100, train_size=0.5, test_size=0.5)
 
     # return score
     return cross_val_score(clf, X, clusters, scoring="accuracy", cv=cv)
@@ -112,8 +116,9 @@ class GLIFClustering(BaseEstimator):
     Leaf = namedtuple("Leaf", "name, indices")
     Split = namedtuple("Split", "name, children, score, size")
 
-    def __init__(self, tol=0.80):
+    def __init__(self, tol=0.80, stratified=False):
         self.tol = tol
+        self.stratified = stratified
 
     def _fit_recursive(self, X, cluster, node=None):
         """Recursive helper for fit()
@@ -140,7 +145,7 @@ class GLIFClustering(BaseEstimator):
         # train/test svm (radial kernal on 100 random 50/50 splits of clustering
         # ---------------------------------------------------------------------
         try:
-            scores = _test_clusters(X, split)
+            scores = _test_clusters(X, split, stratified=self.stratified)
         except ValueError:
             # base case
             # two few of second class to split (say 9:1 or something)
