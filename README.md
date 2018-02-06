@@ -1,4 +1,4 @@
-Iterative Hierarchical Clustering Algorithm
+Flexible Iterative Hierarchical Clustering
 ===========================================
 
 Features
