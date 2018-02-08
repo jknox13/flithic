@@ -31,14 +31,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 /**
- *Author: Joseph Knox
- *Date:   yeet
+ * Edited by Joseph Knox 2018
  *
- *Copyright (c) yeet inc
- *
- *
- *
+ * Copyright (c) 2018. New BSD License.
  */
 
 

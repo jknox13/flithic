@@ -1,8 +1,9 @@
 """
 Directed Hausdorff Code
 
-.. versionadded:: 0.19.0
+see scipy.spatial._hausdorff for documentation
 
+Edited by Joseph Knox 2018
 """
 #
 # Copyright (C)  Tyler Reddy, Richard Gowers, and Max Linke, 2016
@@ -10,10 +11,11 @@ Directed Hausdorff Code
 # Distributed under the same BSD license as Scipy.
 #
 
-#
+# Edited by Joseph Knox 2018.
 # Copyright (C) Joseph Knox, 2018
 #
-# yeet
+# Distributed under New BSD License
+#
 
 from __future__ import absolute_import
 
