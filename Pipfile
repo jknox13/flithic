@@ -7,11 +7,9 @@ name = "pypi"
 [packages]
 
 numpy = "*"
-pandas = "*"
 scipy = "*"
+Cython = "*"
 scikit-learn = "*"
-seaborn = "*"
-xlrd = "*"
 
 [dev-packages]
 
@@ -19,5 +17,8 @@ bumpversion = "*"
 coverage = "*"
 mock = "*"
 nose = "*"
+pandas = "*"
+seaborn = "*"
+xlrd = "*"
 pytest = "*"
 tox = "*"

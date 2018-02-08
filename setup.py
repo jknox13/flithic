@@ -133,29 +133,18 @@ def setup_package():
     )
 
     if "--force" in sys.argv:
-        run_build = True
         sys.argv.remove('--force')
 
     # This import is here because it needs to be done before importing setup()
     # from numpy.distutils, but after the MANIFEST removing and sdist import
     # higher up in this file.
-    from setuptools import setup
+    from numpy.distutils.core import setup
+    cwd = os.path.abspath(os.path.dirname(__file__))
+    if not os.path.exists(os.path.join(cwd, 'PKG-INFO')):
+        # Generate Cython sources, unless building from source release
+        generate_cython()
 
-    if run_build:
-        from numpy.distutils.core import setup
-        cwd = os.path.abspath(os.path.dirname(__file__))
-        if not os.path.exists(os.path.join(cwd, 'PKG-INFO')):
-            # Generate Cython sources, unless building from source release
-            generate_cython()
-
-        metadata['configuration'] = configuration
-    else:
-        # Don't import numpy here - non-build actions are required to succeed
-        # without Numpy for example when pip is used to install Scipy when
-        # Numpy is not yet present in the system.
-
-        # Version number is added to metadata inside configuration() if build
-        # is run.
+    metadata['configuration'] = configuration
 
     setup(**metadata)
 
