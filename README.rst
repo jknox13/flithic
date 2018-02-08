@@ -1,10 +1,10 @@
 FlItHiC: FLexible ITerative HIerarchical Clustering.
 ====================================================
 
-[insert shields here]
+(insert shields here)
 
 -------------
-**FlItHiC** - [short description]
+**FlItHiC** - (short description)
 
 FlItHiC is a tool that aims to be...
 
@@ -12,7 +12,7 @@ The problems FlItHic seeks to solve are:
 
 - Allow for ``nan`` in data to be clustered.
 - Allow many Estimators from Scikit-Learn to be used to cluster.
-- [more]
+- (more)
 
 Features
 --------
