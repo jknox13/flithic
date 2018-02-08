@@ -22,7 +22,7 @@ from __future__ import absolute_import
 import numpy as np
 cimport numpy as np
 cimport cython
-from libc.math cimport sqrt
+from libc.math cimport sqrt, isnan
 
 __all__ = ['directed_hausdorff']
 
