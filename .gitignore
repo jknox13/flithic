@@ -80,3 +80,12 @@ target/
 .idea/
 .history/
 .vscode/
+
+#
+flithic/__config__.py
+cythonize.dat
+.cache
+*.c
+*.cpp
+!*/src/*.c
+!*/src/*.cpp

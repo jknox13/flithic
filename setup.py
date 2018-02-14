@@ -1,13 +1,15 @@
 #!/usr/bin/env python
+#
+# Copyright
+#
+# License: 3-clause BSD
 """FlItHiC: A FLexible ITerative HIerarchical Clustering library"""
 
-DOCLINES = __doc__
-
-import os
 import sys
+import os
+import shutil
 import subprocess
-import textwrap
-import warnings
+from distutils.command.clean import clean as Clean
 
 
 if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[:2] < (3, 5):
@@ -19,7 +21,7 @@ else:
     import builtins
 
 
-CLASSIFIERS="""\
+CLASSIFIERS = """\
 Intended Audience :: Science/Research
 Intended Audience :: Developers
 License :: OSI Approved
@@ -36,6 +38,7 @@ Programming Language :: Python :: 3.6
 """
 
 DISTNAME = 'flithic'
+DOCLINES = __doc__
 with open('README.rst') as f:
     LONG_DESCRIPTON = f.read()
 MAINTAINER = 'Joseph Knox'
@@ -43,6 +46,12 @@ MAINTAINER_EMAIL = 'josephk@alleninstitute.org'
 URL = 'https://github.com/jknox13/iterative-heirarchical-clustering'
 LICENSE = 'new BSD'
 VERSION = '0.0.1'
+
+# # We can actually import a restricted version of sklearn that
+# # does not need the compiled code
+# import flithic
+#
+# VERSION = flithic.__version__
 
 
 # BEFORE importing setuptools, remove MANIFEST. Otherwise it may not be
@@ -80,21 +89,70 @@ def generate_cython():
 
 def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
+
     config = Configuration(None, parent_package, top_path)
+
     config.set_options(ignore_setup_xxx_py=True,
                        assume_default_configuration=True,
                        delegate_options_to_subpackages=True,
                        quiet=True)
 
     config.add_subpackage('flithic')
-    config.add_data_files(('flithic', '*.txt'))
 
     return config
 
+# def get_numpy_status():
+#     """
+#     Returns a dictionary containing a boolean specifying whether NumPy
+#     is up-to-date, along with the version string (empty string if
+#     not installed).
+#     """
+#     numpy_status = {}
+#     try:
+#         import numpy
+#         numpy_version = numpy.__version__
+#         numpy_status['up_to_date'] = parse_version(
+#             numpy_version) >= parse_version(NUMPY_MIN_VERSION)
+#         numpy_status['version'] = numpy_version
+#     except ImportError:
+#         traceback.print_exc()
+#         numpy_status['up_to_date'] = False
+#         numpy_status['version'] = ""
+#     return numpy_status
+
+class CleanCommand(Clean):
+    description = "Remove build artifacts from the source tree"
+
+    def run(self):
+        Clean.run(self)
+        # Remove c files if we are not within a sdist package
+        cwd = os.path.abspath(os.path.dirname(__file__))
+        remove_c_files = not os.path.exists(os.path.join(cwd, 'PKG-INFO'))
+        if remove_c_files:
+            print('Will remove generated .c files')
+        if os.path.exists('build'):
+            shutil.rmtree('build')
+        for dirpath, dirnames, filenames in os.walk('sklearn'):
+            for filename in filenames:
+                if any(filename.endswith(suffix) for suffix in
+                       (".so", ".pyd", ".dll", ".pyc")):
+                    os.unlink(os.path.join(dirpath, filename))
+                    continue
+                extension = os.path.splitext(filename)[1]
+                if remove_c_files and extension in ['.c', '.cpp']:
+                    pyx_file = str.replace(filename, extension, '.pyx')
+                    if os.path.exists(os.path.join(dirpath, pyx_file)):
+                        os.unlink(os.path.join(dirpath, filename))
+            for dirname in dirnames:
+                if dirname == '__pycache__':
+                    shutil.rmtree(os.path.join(dirpath, dirname))
+
+
+cmdclass = {'clean': CleanCommand}
 
 def setup_package():
 
-    cmdclass = {'sdist': sdist_checked}
+    cmdclass.update({'sdist': sdist_checked})
 
     # Figure out whether to add ``*_requires = ['numpy']``.
     # We don't want to do that unconditionally, because we risk updating
@@ -125,26 +183,44 @@ def setup_package():
         cmdclass=cmdclass,
         classifiers=[_f for _f in CLASSIFIERS.split('\n') if _f],
         platforms=["Linux"],
-        test_suite='nose.collector',
-        setup_requires=build_requires,
         install_requires=build_requires,
-        version=VERSION,
-        python_requires='>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*',
+        version=VERSION
     )
 
     if "--force" in sys.argv:
         sys.argv.remove('--force')
 
-    # This import is here because it needs to be done before importing setup()
-    # from numpy.distutils, but after the MANIFEST removing and sdist import
-    # higher up in this file.
-    from numpy.distutils.core import setup
-    cwd = os.path.abspath(os.path.dirname(__file__))
-    if not os.path.exists(os.path.join(cwd, 'PKG-INFO')):
-        # Generate Cython sources, unless building from source release
-        generate_cython()
+    if len(sys.argv) == 1 or (
+            len(sys.argv) >= 2 and ('--help' in sys.argv[1:] or
+                                    sys.argv[1] in ('--help-commands',
+                                                    'egg_info',
+                                                    '--version',
+                                                    'clean'))):
+        # For these actions, NumPy is not required
+        #
+        # They are required to succeed without Numpy for example when
+        # pip is used to install Scikit-learn when Numpy is not yet present in
+        # the system.
+        try:
+            from setuptools import setup
+        except ImportError:
+            from distutils.core import setup
 
-    metadata['configuration'] = configuration
+        metadata["version"] = VERSION
+
+    else:
+
+        # This import is here because it needs to be done before importing setup()
+        # from numpy.distutils, but after the MANIFEST removing and sdist import
+        # higher up in this file.
+        from numpy.distutils.core import setup
+        cwd = os.path.abspath(os.path.dirname(__file__))
+
+        if not os.path.exists(os.path.join(cwd, 'PKG-INFO')):
+            # Generate Cython sources, unless building from source release
+            generate_cython()
+
+        metadata['configuration'] = configuration
 
     setup(**metadata)
 

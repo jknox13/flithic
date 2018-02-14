@@ -1,11 +1,9 @@
 from __future__ import division, print_function, absolute_import
 
-import sys
 
-
-def configuration(parent_package='',top_path=None):
+def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration
-    config = Configuration('flithic',parent_package,top_path)
+    config = Configuration('flithic', parent_package, top_path)
     config.add_subpackage('distance')
     config.make_config_py()
     return config

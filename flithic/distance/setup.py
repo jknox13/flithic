@@ -1,14 +1,10 @@
 from __future__ import division, print_function, absolute_import
-
-from os.path import join, dirname
-import glob
-
+from os.path import join
 
 def configuration(parent_package='', top_path=None):
     from numpy.distutils.misc_util import Configuration, get_numpy_include_dirs
     from numpy.distutils.misc_util import get_info as get_misc_info
     from numpy.distutils.system_info import get_info as get_sys_info
-    from distutils.sysconfig import get_python_inc
 
     config = Configuration('distance', parent_package, top_path)
 

@@ -133,9 +133,9 @@ bray_curtis_distance_double(const double *u, const double *v, const npy_intp n)
 }
 
 /*
- * Timings with various BLAS implementations (gh-5657) have shown that using
- * OpenBLAS's cblas_ddot here can give some speedup, but only for high-d data
- * and an untuned ATLAS is slower than rolling our own.
+ * timings with various blas implementations (gh-5657) have shown that using
+ * openblas's cblas_ddot here can give some speedup, but only for high-d data
+ * and an untuned atlas is slower than rolling our own.
  */
 static NPY_INLINE double
 dot_product(const double *u, const double *v, const npy_intp n)
@@ -168,7 +168,7 @@ mahalanobis_distance(const double *u, const double *v, const double *covinv,
     	}
     }
     /*
-     * Note: matrix-vector multiplication (GEMV). Again, OpenBLAS can speed
+     * note: matrix-vector multiplication (gemv). again, openblas can speed
      * this up for high-d data.
      */
     for (i = 0; i < n; ++i) {
@@ -391,7 +391,7 @@ weighted_minkowski_distance(const double *u, const double *v, const npy_intp n,
 }
 
 static NPY_INLINE int
-pdist_mahalanobis(const double *X, double *dm, const npy_intp num_rows,
+pdist_mahalanobis(const double *x, double *dm, const npy_intp num_rows,
                   const npy_intp num_cols, const double *covinv)
 {
     npy_intp i, j;
@@ -404,9 +404,9 @@ pdist_mahalanobis(const double *X, double *dm, const npy_intp num_rows,
     dimbuf2 = dimbuf1 + num_cols;
 
     for (i = 0; i < num_rows; ++i) {
-        const double *u = X + (num_cols * i);
+        const double *u = x + (num_cols * i);
         for (j = i + 1; j < num_rows; ++j, ++dm) {
-            const double *v = X + (num_cols * j);
+            const double *v = x + (num_cols * j);
             *dm = mahalanobis_distance(u, v, covinv, dimbuf1, dimbuf2, num_cols);
         }
     }
@@ -415,7 +415,7 @@ pdist_mahalanobis(const double *X, double *dm, const npy_intp num_rows,
 }
 
 static NPY_INLINE int
-pdist_cosine(const double *X, double *dm, const npy_intp num_rows,
+pdist_cosine(const double *x, double *dm, const npy_intp num_rows,
              const npy_intp num_cols)
 {
     double cosine;
@@ -425,15 +425,15 @@ pdist_cosine(const double *X, double *dm, const npy_intp num_rows,
     if (!norms_buff)
         return -1;
 
-    _row_norms(X, num_rows, num_cols, norms_buff);
+    _row_norms(x, num_rows, num_cols, norms_buff);
 
     for (i = 0; i < num_rows; ++i) {
-        const double *u = X + (num_cols * i);
+        const double *u = x + (num_cols * i);
         for (j = i + 1; j < num_rows; ++j, ++dm) {
-            const double *v = X + (num_cols * j);
+            const double *v = x + (num_cols * j);
             cosine = dot_product(u, v, num_cols) / (norms_buff[i] * norms_buff[j]);
             if (fabs(cosine) > 1.) {
-                /* Clip to correct rounding error. */
+                /* clip to correct rounding error. */
                 cosine = npy_copysign(1, cosine);
             }
             *dm = 1. - cosine;
@@ -444,15 +444,15 @@ pdist_cosine(const double *X, double *dm, const npy_intp num_rows,
 }
 
 static NPY_INLINE int
-pdist_seuclidean(const double *X, const double *var, double *dm,
+pdist_seuclidean(const double *x, const double *var, double *dm,
                  const npy_intp num_rows, const npy_intp num_cols)
 {
     npy_intp i, j;
 
     for (i = 0; i < num_rows; ++i) {
-        const double *u = X + (num_cols * i);
+        const double *u = x + (num_cols * i);
         for (j = i + 1; j < num_rows; ++j, ++dm) {
-            const double *v = X + (num_cols * j);
+            const double *v = x + (num_cols * j);
             *dm = seuclidean_distance(var, u, v, num_cols);
         }
     }
@@ -460,15 +460,15 @@ pdist_seuclidean(const double *X, const double *var, double *dm,
 }
 
 static NPY_INLINE int
-pdist_minkowski(const double *X, double *dm, npy_intp num_rows,
+pdist_minkowski(const double *x, double *dm, npy_intp num_rows,
                 const npy_intp num_cols, const double p)
 {
     npy_intp i, j;
 
     for (i = 0; i < num_rows; ++i) {
-        const double *u = X + (num_cols * i);
+        const double *u = x + (num_cols * i);
         for (j = i + 1; j < num_rows; ++j, ++dm) {
-            const double *v = X + (num_cols * j);
+            const double *v = x + (num_cols * j);
             *dm = minkowski_distance(u, v, num_cols, p);
         }
     }
@@ -476,15 +476,15 @@ pdist_minkowski(const double *X, double *dm, npy_intp num_rows,
 }
 
 static NPY_INLINE int
-pdist_weighted_minkowski(const double *X, double *dm, npy_intp num_rows,
+pdist_weighted_minkowski(const double *x, double *dm, npy_intp num_rows,
                          const npy_intp num_cols, const double p, const double *w)
 {
     npy_intp i, j;
 
     for (i = 0; i < num_rows; ++i) {
-        const double *u = X + (num_cols * i);
+        const double *u = x + (num_cols * i);
         for (j = i + 1; j < num_rows; ++j, ++dm) {
-            const double *v = X + (num_cols * j);
+            const double *v = x + (num_cols * j);
             *dm = weighted_minkowski_distance(u, v, num_cols, p, w);
         }
     }
@@ -542,6 +542,7 @@ dist_to_vector_from_squareform(const char *M, char *v, const npy_intp n, npy_int
         cit += (n + 1) * s;
     }
 }
+
 
 
 /** cdist */
