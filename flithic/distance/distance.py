@@ -47,6 +47,7 @@ from collections import namedtuple
 
 import warnings
 import numpy as np
+import numpy.ma as ma
 
 from scipy._lib.six import callable, string_types
 from scipy._lib.six import xrange
@@ -66,12 +67,12 @@ from . import _hausdorff
 
 def nan_test(func):
     @wraps(func)
-    def test_nan_and_call(u, v, *args, **kwargs):
-        if np.isnan(u).any() or np.isnan(v).any():
+    def test_nan_and_call(*args, **kwargs):
+        if any((np.isnan(arg).any() for arg in args if not callable(arg))):
             # call my version
-            return func(u, v, *args, **kwargs)
+            return func(*args, **kwargs)
         # call scipy version
-        return getattr(sci_dist, func.__name__)(u, v, *args, **kwargs)
+        return getattr(sci_dist, func.__name__)(*args, **kwargs)
     return test_nan_and_call
 
 # NOTE: only because scipy 1.0 does not have
@@ -91,36 +92,45 @@ def directed_hausdorff(u, v, seed=0):
     result = _hausdorff.directed_hausdorff(u, v, seed)
     return result
 
-@nan_test
-def minkowski(u, v, p=2, w=None):
-    """
-    See scipy.spatial.distance.minkowski
-    """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
-    if p < 1:
-        raise ValueError("p must be at least 1")
-    u_v = u - v
-    if w is not None:
-        w = _validate_weights(w)
-        if p == 1:
-            root_w = w
-        if p == 2:
-            # better precision and speed
-            root_w = np.sqrt(w)
-        else:
-            root_w = np.power(w, 1/p)
-        u_v = root_w * u_v
-    dist = norm(u_v, ord=p)
-    return dist
+# TODO : np.linalg.norm for nan
+#@nan_test
+#def minkowski(u, v, p=2, w=None):
+#    """
+#    See scipy.spatial.distance.minkowski
+#    """
+#    u = _validate_vector(u)
+#    v = _validate_vector(v)
+#    if p < 1:
+#        raise ValueError("p must be at least 1")
+#    u_v = u - v
+#    if w is not None:
+#        w = _validate_weights(w)
+#        if p == 1:
+#            root_w = w
+#        if p == 2:
+#            # better precision and speed
+#            root_w = np.sqrt(w)
+#        else:
+#            root_w = np.power(w, 1/p)
+#        u_v = root_w * u_v
+#    dist = norm(u_v, ord=p)
+#    return dist
+#
+#
+#@nan_test
+#def euclidean(u, v, w=None):
+#    """
+#    """
+#    return minkowski(u, v, p=2, w=w)
 
+def _mask_vector(x):
+    x = _validate_vector(x)
+    if np.isnan(x).any():
+        return ma.array(x, mask=np.isnan(x))
+    return x
 
-@nan_test
-def euclidean(u, v, w=None):
-    """
-    """
-    return minkowski(u, v, p=2, w=w)
-
+def _validate_and_mask(x, **kwargs):
+    return _mask_vector(_validate_vector(x, **kwargs))
 
 @nan_test
 def sqeuclidean(u, v, w=None):
@@ -134,33 +144,34 @@ def sqeuclidean(u, v, w=None):
     if not (hasattr(v, "dtype") and np.issubdtype(v.dtype, np.inexact)):
         vtype = np.float64
 
-    u = _validate_vector(u, dtype=utype)
-    v = _validate_vector(v, dtype=vtype)
+    u = _validate_and_mask(u, dtype=utype)
+    v = _validate_and_mask(v, dtype=vtype)
+
     u_v = u - v
     u_v_w = u_v  # only want weights applied once
     if w is not None:
         w = _validate_weights(w)
         u_v_w = w * u_v
-    return np.dot(u_v, u_v_w)
-
+    return ma.dot(u_v, u_v_w).data
 
 @nan_test
 def correlation(u, v, w=None, centered=True):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
+
     if w is not None:
         w = _validate_weights(w)
     if centered:
-        umu = np.average(u, weights=w)
-        vmu = np.average(v, weights=w)
+        umu = ma.average(u, weights=w)
+        vmu = ma.average(v, weights=w)
         u = u - umu
         v = v - vmu
-    uv = np.average(u * v, weights=w)
-    uu = np.average(np.square(u), weights=w)
-    vv = np.average(np.square(v), weights=w)
-    dist = 1.0 - uv / np.sqrt(uu * vv)
+    uv = ma.average(u * v, weights=w)
+    uu = ma.average(np.square(u), weights=w)
+    vv = ma.average(np.square(v), weights=w)
+    dist = 1.0 - uv / ma.sqrt(uu * vv)
     return dist
 
 
@@ -171,42 +182,20 @@ def cosine(u, v, w=None):
     return correlation(u, v, w=w, centered=False)
 
 
-@nan_test
 def hamming(u, v, w=None):
-    """
-    """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
-    if u.shape != v.shape:
-        raise ValueError('The 1d arrays must have equal lengths.')
-    u_ne_v = u != v
-    if w is not None:
-        w = _validate_weights(w)
-    return np.average(u_ne_v, weights=w)
+    return sci_dist.hamming(u, v, w=w)
 
 
-@nan_test
 def jaccard(u, v, w=None):
-    """
-    """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
-    nonzero = np.bitwise_or(u != 0, v != 0)
-    unequal_nonzero = np.bitwise_and((u != v), nonzero)
-    if w is not None:
-        w = _validate_weights(w)
-        nonzero = w * nonzero
-        unequal_nonzero = w * unequal_nonzero
-    dist = np.double(unequal_nonzero.sum()) / np.double(nonzero.sum())
-    return dist
+    return sci_dist.hamming(u, v, w=w)
 
 
 @nan_test
 def kulsinski(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if w is None:
         n = float(len(u))
     else:
@@ -221,8 +210,8 @@ def kulsinski(u, v, w=None):
 def seuclidean(u, v, V):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     V = _validate_vector(V, dtype=np.float64)
     if V.shape[0] != u.shape[0] or u.shape[0] != v.shape[0]:
         raise TypeError('V must be a 1-D array of the same dimension '
@@ -234,8 +223,8 @@ def seuclidean(u, v, V):
 def cityblock(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     l1_diff = abs(u - v)
     if w is not None:
         w = _validate_weights(w)
@@ -247,8 +236,8 @@ def cityblock(u, v, w=None):
 def mahalanobis(u, v, VI):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     VI = np.atleast_2d(VI)
     delta = u - v
     m = np.dot(np.dot(delta, VI), delta)
@@ -259,8 +248,8 @@ def mahalanobis(u, v, VI):
 def chebyshev(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if w is not None:
         w = _validate_weights(w)
         has_weight = w > 0
@@ -274,8 +263,8 @@ def chebyshev(u, v, w=None):
 def braycurtis(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v, dtype=np.float64)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v, dtype=np.float64)
     l1_diff = abs(u - v)
     l1_sum = abs(u + v)
     if w is not None:
@@ -289,8 +278,8 @@ def braycurtis(u, v, w=None):
 def canberra(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v, dtype=np.float64)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v, dtype=np.float64)
     if w is not None:
         w = _validate_weights(w)
     olderr = np.seterr(invalid='ignore')
@@ -311,8 +300,8 @@ def canberra(u, v, w=None):
 def yule(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if w is not None:
         w = _validate_weights(w)
     (nff, nft, ntf, ntt) = _nbool_correspond_all(u, v, w=w)
@@ -323,8 +312,8 @@ def yule(u, v, w=None):
 def dice(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if w is not None:
         w = _validate_weights(w)
     if u.dtype == v.dtype == bool and w is None:
@@ -345,8 +334,8 @@ def dice(u, v, w=None):
 def rogerstanimoto(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if w is not None:
         w = _validate_weights(w)
     (nff, nft, ntf, ntt) = _nbool_correspond_all(u, v, w=w)
@@ -357,8 +346,8 @@ def rogerstanimoto(u, v, w=None):
 def russellrao(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if u.dtype == v.dtype == bool and w is None:
         ntt = (u & v).sum()
         n = float(len(u))
@@ -376,8 +365,8 @@ def russellrao(u, v, w=None):
 def sokalmichener(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if u.dtype == v.dtype == bool and w is None:
         ntt = (u & v).sum()
         nff = (~u & ~v).sum()
@@ -396,8 +385,8 @@ def sokalmichener(u, v, w=None):
 def sokalsneath(u, v, w=None):
     """
     """
-    u = _validate_vector(u)
-    v = _validate_vector(v)
+    u = _validate_and_mask(u)
+    v = _validate_and_mask(v)
     if u.dtype == v.dtype == bool and w is None:
         ntt = (u & v).sum()
     elif w is None:
